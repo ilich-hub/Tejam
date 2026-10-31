@@ -55,39 +55,85 @@ export function compare(list, stores, prices, loc, rate) {
   return rows
 }
 
+export const haptic = (kind = 'light') => {
+  try { kind === 'success' ? tg?.HapticFeedback?.notificationOccurred('success') : tg?.HapticFeedback?.impactOccurred(kind) } catch { /* ignore */ }
+}
+export const openLink = (url) => (tg?.openLink ? tg.openLink(url) : window.open(url, '_blank'))
+export const shareText = (text) => {
+  const link = import.meta.env.VITE_BOT_LINK || window.location.origin
+  const u = `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(text)}`
+  tg?.openTelegramLink ? tg.openTelegramLink(u) : window.open(u, '_blank')
+}
+export const routeUrl = (s) => `https://www.google.com/maps/dir/?api=1&destination=${s.lat},${s.lng}`
+
+// Свежесть цены: сегодня / вчера / N дней. level: ok | warn | old
+export function freshness(ts, t) {
+  if (!ts) return { level: 'old', text: t.freshNone }
+  const days = Math.floor((Date.now() - new Date(ts).getTime()) / 86400000)
+  if (days <= 0) return { level: 'ok', text: t.freshToday }
+  if (days === 1) return { level: 'ok', text: t.freshYday }
+  return { level: days <= 7 ? 'warn' : 'old', text: t.freshDays.replace('{n}', days) }
+}
+
+// Готовые корзины: снимают трение первого шага (эффект «по умолчанию»).
+export const PRESETS = [
+  { key: 'pBasic', names: ['яйца', 'молоко', 'рис', 'сахар', 'масло', 'мука'] },
+  { key: 'pVeg', names: ['картофель', 'лук', 'морковь'] },
+  { key: 'pTea', names: ['чай', 'сахар', 'лепёшка'] },
+]
+
 export const T = {
   ru: {
-    tabList: 'Список', tabCompare: 'Сравнение', tabShop: 'Магазин',
-    search: 'Найти товар', loading: 'Загрузка…', err: 'Не удалось загрузить данные. Проверьте интернет и откройте снова.',
-    emptyList: 'Добавьте товары, и мы найдём, где корзина выгоднее с учётом дороги.',
-    from: 'от', toCompare: 'Сравнить цены', clear: 'Очистить список', demo: 'Демо-цены: реальные добавят магазины.',
+    tabList: 'Список', tabCompare: 'Сравнение', tabBudget: 'Бюджет', tabShop: 'Магазин',
+    search: 'Найти товар', all: 'Все', loading: 'Загрузка…', err: 'Не удалось загрузить данные. Проверьте интернет и откройте снова.',
+    heroTitle: 'Где корзина дешевле?', heroText: 'Составьте список. TEJAM найдёт магазин с лучшей ценой и учтёт дорогу.',
+    step1: 'Список', step2: 'Сравнение', step3: 'Экономия', quick: 'Быстрый старт',
+    pBasic: 'Базовая корзина', pVeg: 'Овощи', pTea: 'К чаю', repeat: 'Повторить прошлую покупку',
+    emptyList: 'Ничего не нашли. Попробуйте другое слово.', from: 'от', toCompare: 'Сравнить цены', compareSave: 'Сравнить · экономия ~{n} сум',
+    clear: 'Очистить', demo: 'Демо-цены: реальные добавят магазины.', sum: 'сум',
     where: 'Откуда считать дорогу', locate: 'Определить мой адрес', located: 'Адрес определён', center: 'Считаем от центра Нукуса',
     locFail: 'Не удалось определить адрес, считаем от центра.', rate: 'Дорога, сум за 1 км (туда и обратно)',
-    savesYou: 'Выгоднее на', goods: 'Товары', road: 'Дорога', total: 'Итого', best: 'Лучший выбор',
-    missing: 'нет в наличии', notAll: 'нет {n} из {m}', km: 'км', details: 'Цены в магазине',
+    savesYou: 'Вы экономите', instead: 'вместо', goods: 'Товары', road: 'Дорога', total: 'Итого', best: 'Лучший выбор',
+    missing: 'нет в наличии', notAll: 'нет {n} из {m}', km: 'км', details: 'Цены в магазине', moreInfo: 'Подробнее',
     wrongPrice: 'Цена неверна', thanks: 'Спасибо, проверим', repLimit: 'Сегодня уже достаточно жалоб',
     hintCheaper: 'Дешевле по цене в «{s}», но дорога съедает выгоду.', single: 'Нужны цены хотя бы двух магазинов, чтобы сравнивать.',
-    noList: 'Список пуст. Сначала выберите товары.', shopIntro: 'Обновляйте цены магазина. Покупатели увидят их сразу.',
-    notOwner: 'Этот раздел для владельцев магазинов. Чтобы подключить магазин, напишите нам.',
-    openInTg: 'Откройте приложение внутри Telegram, чтобы войти как магазин.', price: 'Цена, сум', inStock: 'В наличии',
-    save: 'Сохранить цены', saved: 'Цены обновлены', saveFail: 'Не удалось сохранить. Проверьте цены и попробуйте снова.',
-    myStores: 'Мои магазины', pcs: 'шт',
+    noneFull: 'Ни в одном магазине нет всех товаров из списка.', noList: 'Список пуст. Сначала выберите товары.',
+    route: 'Маршрут', bought: 'Купил здесь', freshToday: 'цены обновлены сегодня', freshYday: 'цены обновлены вчера',
+    freshDays: 'цены обновлены {n} дн. назад', freshNone: 'дата обновления неизвестна',
+    doneTitle: 'Отличная покупка!', doneSaved: 'Вы сэкономили {n} сум', doneZero: 'Покупка записана в бюджет', doneNote: 'Она уже в вашем бюджете.',
+    share: 'Поделиться', toBudget: 'К бюджету', close: 'Закрыть', shareText: 'Я сэкономил {n} сум на продуктах с TEJAM',
+    savedMonth: 'Сэкономлено в этом месяце', budgetTitle: 'Бюджет на месяц', limit: 'Лимит на месяц, сум', setLimit: 'Задайте лимит, и мы покажем, сколько можно тратить в день.',
+    spent: 'Потрачено', left: 'Осталось', perDay: 'Можно тратить в день: {n} сум', over: 'Лимит превышен на {n} сум',
+    purchases: 'Последние покупки', noPurch: 'Пока нет покупок. Нажмите «Купил здесь» в сравнении, и покупка появится тут.',
+    saved: 'Цены обновлены', saveFail: 'Не удалось сохранить. Проверьте цены и попробуйте снова.',
+    becomeShop: 'Вы владелец магазина? Напишите нам, чтобы подключиться.',
+    shopIntro: 'Обновляйте цены магазина. Покупатели увидят их сразу.', price: 'Цена, сум', inStock: 'В наличии', save: 'Сохранить цены', myStores: 'Мои магазины',
   },
   uz: {
-    tabList: 'Roʻyxat', tabCompare: 'Taqqoslash', tabShop: 'Doʻkon',
-    search: 'Mahsulot qidirish', loading: 'Yuklanmoqda…', err: 'Maʼlumotlarni yuklab boʻlmadi. Internetni tekshirib, qayta oching.',
-    emptyList: 'Mahsulot qoʻshing, yoʻl xarajatini hisobga olib qayerda arzonligini topamiz.',
-    from: 'dan', toCompare: 'Narxlarni taqqoslash', clear: 'Roʻyxatni tozalash', demo: 'Demo narxlar: haqiqiylarini doʻkonlar kiritadi.',
+    tabList: 'Roʻyxat', tabCompare: 'Taqqoslash', tabBudget: 'Byudjet', tabShop: 'Doʻkon',
+    search: 'Mahsulot qidirish', all: 'Hammasi', loading: 'Yuklanmoqda…', err: 'Maʼlumotlarni yuklab boʻlmadi. Internetni tekshirib, qayta oching.',
+    heroTitle: 'Savat qayerda arzon?', heroText: 'Roʻyxat tuzing. TEJAM eng yaxshi narxli doʻkonni topadi va yoʻlni hisobga oladi.',
+    step1: 'Roʻyxat', step2: 'Taqqoslash', step3: 'Tejash', quick: 'Tez boshlash',
+    pBasic: 'Asosiy savat', pVeg: 'Sabzavotlar', pTea: 'Choyga', repeat: 'Oxirgi xaridni takrorlash',
+    emptyList: 'Hech narsa topilmadi. Boshqa soʻz yozing.', from: 'dan', toCompare: 'Narxlarni taqqoslash', compareSave: 'Taqqoslash · tejam ~{n} soʻm',
+    clear: 'Tozalash', demo: 'Demo narxlar: haqiqiylarini doʻkonlar kiritadi.', sum: 'soʻm',
     where: 'Yoʻlni qayerdan hisoblash', locate: 'Manzilimni aniqlash', located: 'Manzil aniqlandi', center: 'Nukus markazidan hisoblaymiz',
     locFail: 'Manzilni aniqlab boʻlmadi, markazdan hisoblaymiz.', rate: 'Yoʻl, 1 km uchun soʻm (borib-kelish)',
-    savesYou: 'Tejam', goods: 'Mahsulotlar', road: 'Yoʻl', total: 'Jami', best: 'Eng yaxshi tanlov',
-    missing: 'mavjud emas', notAll: '{m} tadan {n} tasi yoʻq', km: 'km', details: 'Doʻkondagi narxlar',
+    savesYou: 'Tejaysiz', instead: 'oʻrniga', goods: 'Mahsulotlar', road: 'Yoʻl', total: 'Jami', best: 'Eng yaxshi tanlov',
+    missing: 'mavjud emas', notAll: '{m} tadan {n} tasi yoʻq', km: 'km', details: 'Doʻkondagi narxlar', moreInfo: 'Batafsil',
     wrongPrice: 'Narx notoʻgʻri', thanks: 'Rahmat, tekshiramiz', repLimit: 'Bugun shikoyatlar yetarli',
     hintCheaper: 'Narxi «{s}» doʻkonida arzon, lekin yoʻl xarajati foydani yeydi.', single: 'Taqqoslash uchun kamida ikkita doʻkon narxi kerak.',
-    noList: 'Roʻyxat boʻsh. Avval mahsulot tanlang.', shopIntro: 'Doʻkon narxlarini yangilang. Xaridorlar darhol koʻradi.',
-    notOwner: 'Bu boʻlim doʻkon egalari uchun. Doʻkonni ulash uchun bizga yozing.',
-    openInTg: 'Doʻkon sifatida kirish uchun ilovani Telegram ichida oching.', price: 'Narx, soʻm', inStock: 'Mavjud',
-    save: 'Narxlarni saqlash', saved: 'Narxlar yangilandi', saveFail: 'Saqlab boʻlmadi. Narxlarni tekshirib, qayta urining.',
-    myStores: 'Mening doʻkonlarim', pcs: 'dona',
+    noneFull: 'Hech bir doʻkonda roʻyxatdagi barcha mahsulot yoʻq.', noList: 'Roʻyxat boʻsh. Avval mahsulot tanlang.',
+    route: 'Yoʻnalish', bought: 'Shu yerdan oldim', freshToday: 'narxlar bugun yangilangan', freshYday: 'narxlar kecha yangilangan',
+    freshDays: 'narxlar {n} kun oldin yangilangan', freshNone: 'yangilanish sanasi nomaʼlum',
+    doneTitle: 'Ajoyib xarid!', doneSaved: 'Siz {n} soʻm tejadingiz', doneZero: 'Xarid byudjetga yozildi', doneNote: 'U allaqachon byudjetingizda.',
+    share: 'Ulashish', toBudget: 'Byudjetga', close: 'Yopish', shareText: 'Men TEJAM bilan oziq-ovqatda {n} soʻm tejadim',
+    savedMonth: 'Shu oyda tejaldi', budgetTitle: 'Oylik byudjet', limit: 'Oylik limit, soʻm', setLimit: 'Limitni belgilang, kuniga qancha sarflash mumkinligini koʻrsatamiz.',
+    spent: 'Sarflandi', left: 'Qoldi', perDay: 'Kuniga sarflash mumkin: {n} soʻm', over: 'Limit {n} soʻmga oshdi',
+    purchases: 'Oxirgi xaridlar', noPurch: 'Hozircha xarid yoʻq. Taqqoslashda «Shu yerdan oldim» tugmasini bosing.',
+    saved: 'Narxlar yangilandi', saveFail: 'Saqlab boʻlmadi. Narxlarni tekshirib, qayta urining.',
+    becomeShop: 'Doʻkon egasimisiz? Ulanish uchun bizga yozing.',
+    shopIntro: 'Doʻkon narxlarini yangilang. Xaridorlar darhol koʻradi.', price: 'Narx, soʻm', inStock: 'Mavjud', save: 'Narxlarni saqlash', myStores: 'Mening doʻkonlarim',
   },
 }
+
